@@ -198,6 +198,13 @@
   }
   table.sick-table th{background:#FAF8F4;color:var(--muted);font-weight:700;font-size:12.5px;}
 
+  .type-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px;white-space:nowrap;
+  }
+  .type-badge.sick{background:#E7EAF0;color:var(--sage);}
+  .type-badge.cash{background:#FBF1D8;color:var(--amber-deep);}
+
   .footer-note{text-align:center;margin-top:22px;font-size:12.5px;color:var(--muted);}
 
 
@@ -368,7 +375,7 @@
 
   </div>
 
-  <p class="footer-note">جميع الحقول المعلّمة بـ <span style="color:#9C3B2E">*</span> إلزامية. بياناتك محمية بالرقم السري الخاص بك ولا تظهر لأي شخص آخر.</p>
+  <p class="footer-note" id="footerNote">جميع الحقول المعلّمة بـ <span style="color:#9C3B2E">*</span> إلزامية. بياناتك محمية بالرقم السري الخاص بك ولا تظهر لأي شخص آخر.</p>
 </div>
 
 <script>
@@ -629,13 +636,19 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
     }).join('');
   }
 
+  function typeBadgeHtml_(type){
+    const t = type || '-';
+    const cls = t.indexOf('مرضي') > -1 ? 'sick' : (t.indexOf('نقدي') > -1 ? 'cash' : '');
+    return '<span class="type-badge ' + cls + '">' + t + '</span>';
+  }
+
   function renderSickCash(records){
     if(!records || records.length === 0){
       sickContent.innerHTML = '<div class="empty-note">لا توجد سجلات إجازة مرضية أو استرداد نقدي مسجّلة باسمك.</div>';
       return;
     }
     let rows = records.map(function(r){
-      return '<tr><td>' + (r.type || '-') + '</td><td>' + (r.date || '-') + '</td><td>' + (r.details || '-') + '</td><td>' + (r.notes || '-') + '</td></tr>';
+      return '<tr><td>' + typeBadgeHtml_(r.type) + '</td><td>' + (r.date || '-') + '</td><td>' + (r.details || '-') + '</td><td>' + (r.notes || '-') + '</td></tr>';
     }).join('');
     sickContent.innerHTML =
       '<table class="sick-table"><thead><tr><th>النوع</th><th>التاريخ</th><th>التفاصيل</th><th>ملاحظات</th></tr></thead><tbody>' + rows + '</tbody></table>';
@@ -693,6 +706,7 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
 
   const pageTitle = document.getElementById('pageTitle');
   const pageSub = document.getElementById('pageSub');
+  const footerNote = document.getElementById('footerNote');
 
   function showTab(which){
     const isRequest = which === 'request';
@@ -704,10 +718,12 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
       pageTitle.textContent = 'نموذج طلب إجازة';
       pageSub.textContent = '';
       document.title = 'النيل للسكر - طلب الإجازة';
+      footerNote.innerHTML = 'جميع الحقول المعلّمة بـ <span style="color:#9C3B2E">*</span> إلزامية. بياناتك محمية بالرقم السري الخاص بك ولا تظهر لأي شخص آخر.';
     } else {
       pageTitle.textContent = 'استعلامات النيل للسكر';
       pageSub.textContent = 'طلب الإجازة - رصيد الإجازات - الإجازة المرضية - الاسترداد النقدي';
       document.title = 'النيل للسكر - تتبع طلباتي';
+      footerNote.textContent = 'بياناتك محمية بالرقم السري الخاص بك ولا تظهر لأي شخص آخر.';
     }
   }
 
