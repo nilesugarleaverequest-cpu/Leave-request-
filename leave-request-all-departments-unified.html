@@ -530,6 +530,11 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
     sel.innerHTML = html;
   }
 
+  function daysInMonth(month, year){
+    // شهر 1-12، بيرجع عدد الأيام الفعلي للشهر (مراعيًا السنة الكبيسة لفبراير)
+    return new Date(year, month, 0).getDate();
+  }
+
   function setupDateGroup(dayId, monthId, yearId, hiddenId){
     const day = document.getElementById(dayId);
     const month = document.getElementById(monthId);
@@ -539,6 +544,17 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
     fillSelect(day, 31, 1);
     fillSelect(month, 12, 1);
     fillSelect(year, 3, nowYear);
+
+    function refreshDays(){
+      if(!month.value || !year.value) return;
+      const maxDays = daysInMonth(Number(month.value), Number(year.value));
+      const prevSelected = day.value;
+      fillSelect(day, maxDays, 1);
+      // لو اليوم المختار سابقًا لسه ضمن النطاق الجديد، رجّعه تاني
+      if(prevSelected && Number(prevSelected) <= maxDays){
+        day.value = prevSelected;
+      }
+    }
 
     function sync(){
       if(day.value && month.value && year.value){
@@ -550,8 +566,8 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
       }
     }
     day.addEventListener('change', sync);
-    month.addEventListener('change', sync);
-    year.addEventListener('change', sync);
+    month.addEventListener('change', function(){ refreshDays(); sync(); });
+    year.addEventListener('change', function(){ refreshDays(); sync(); });
   }
 
   setupDateGroup('startDay','startMonth','startYear','startDate');
