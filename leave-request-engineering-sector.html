@@ -537,11 +537,13 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
 
     fillSelect(day, 31, 1);
     fillSelect(month, 12, 1);
-    fillSelect(year, 3, nowYear);
+    fillSelect(year, Math.max(3, 2030 - nowYear + 1), nowYear);
 
     function refreshDays(){
-      if(!month.value || !year.value) return;
-      const maxDays = daysInMonth(Number(month.value), Number(year.value));
+      if(!month.value) return;
+      // لو السنة لسه ما اتحددتش، استخدم السنة الحالية مؤقتًا عشان نحسب عدد الأيام الصح فورًا
+      const yearVal = year.value ? Number(year.value) : nowYear;
+      const maxDays = daysInMonth(Number(month.value), yearVal);
       const prevSelected = day.value;
       fillSelect(day, maxDays, 1);
       // لو اليوم المختار سابقًا لسه ضمن النطاق الجديد، رجّعه تاني
@@ -562,6 +564,9 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
     day.addEventListener('change', sync);
     month.addEventListener('change', function(){ refreshDays(); sync(); });
     year.addEventListener('change', function(){ refreshDays(); sync(); });
+
+    // لو المستخدم اختار الشهر فعلاً وقت تحميل الصفحة (رجوع للخلف مثلاً) حدّث الأيام فورًا
+    if(month.value){ refreshDays(); }
   }
 
   setupDateGroup('startDay','startMonth','startYear','startDate');
