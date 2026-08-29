@@ -395,6 +395,21 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
   const submitBtn = document.getElementById('submitBtn');
   const SCRIPT_URL = document.getElementById('leaveForm').action;
 
+  // منع الإرسال المزدوج (Double Submit): لو المستخدم ضغط "إرسال" أكتر من
+  // مرة بسرعة (double click / تأخر استجابة الشبكة)، نمنع أي محاولة إرسال
+  // تانية فور أول ضغطة، ونعطّل الزرار ونغيّر نصه لحد ما الصفحة تنتقل لرد
+  // السيرفر.
+  let formAlreadySubmitted = false;
+  document.getElementById('leaveForm').addEventListener('submit', function (e) {
+    if (formAlreadySubmitted) {
+      e.preventDefault();
+      return;
+    }
+    formAlreadySubmitted = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'جارٍ إرسال الطلب...';
+  });
+
   let codeValid = false;
   let pinValid = false;
   let currentEmployee = null;
