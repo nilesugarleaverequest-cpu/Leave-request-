@@ -247,6 +247,7 @@
   <div class="card">
     <form id="leaveForm" action="https://script.google.com/macros/s/AKfycbwxDX3sXci4CvJpy_wO8KhCtEdnowLC36zolawQP1DFe0gDC0rNJdE_uTqbpLi9KQAW/exec" method="POST">
       <input type="hidden" id="deptHidden" name="_dept" value="">
+      <input type="hidden" id="requestToken" name="_request_token" value="">
 
       <div class="field">
         <label>اختر القسم<span class="req">*</span></label>
@@ -264,13 +265,13 @@
 
       <div class="field code-row">
         <label>الكود الوظيفي<span class="req">*</span></label>
-        <input type="text" id="codeInput" name="الكود" required inputmode="numeric" placeholder="اختر القسم أولاً ثم اكتب الكود الوظيفي" disabled>
+        <input type="text" id="codeInput" name="الكود" required inputmode="numeric" maxlength="12" placeholder="اختر القسم أولاً ثم اكتب الكود الوظيفي" disabled>
         <div class="code-status" id="codeStatus"></div>
       </div>
 
       <div class="field code-row">
         <label>الرقم السري<span class="req">*</span></label>
-        <input type="text" id="pinInput" name="_pin" inputmode="numeric" maxlength="4" required placeholder="الرقم السري الخاص بك (4 أرقام)" disabled autocomplete="off">
+        <input type="password" id="pinInput" name="_pin" inputmode="numeric" maxlength="4" required placeholder="الرقم السري الخاص بك (4 أرقام)" disabled autocomplete="off">
         <div class="code-status" id="pinStatus"></div>
       </div>
 
@@ -339,11 +340,11 @@
   <div class="card" id="trkLoginCard">
     <div class="field code-row">
       <label>الكود الوظيفي</label>
-      <input type="text" id="trkCodeInput" inputmode="numeric" placeholder="اكتب كودك الوظيفي" autocomplete="off">
+      <input type="text" id="trkCodeInput" inputmode="numeric" maxlength="12" placeholder="اكتب كودك الوظيفي" autocomplete="off">
     </div>
     <div class="field code-row">
       <label>الرقم السري</label>
-      <input type="text" id="trkPinInput" inputmode="numeric" maxlength="4" placeholder="الرقم السري الخاص بك (4 أرقام)" autocomplete="off">
+      <input type="password" id="trkPinInput" inputmode="numeric" maxlength="4" placeholder="الرقم السري الخاص بك (4 أرقام)" autocomplete="off">
       <div class="code-status" id="trkPinStatus"></div>
     </div>
     <button id="trkCheckBtn" disabled>عرض بياناتي</button>
@@ -388,6 +389,52 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
   const codeStatus = document.getElementById('codeStatus');
   const submitBtn = document.getElementById('submitBtn');
   const SCRIPT_URL = document.getElementById('leaveForm').action;
+
+
+  function escapeHtmlText_(value){
+    return String(value === null || value === undefined ? '' : value)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
+  }
+
+  async function apiPost_(action, payload){
+    const body = new URLSearchParams();
+    body.set('action', action);
+    Object.keys(payload || {}).forEach(function(key){
+      body.set(key, payload[key] === null || payload[key] === undefined ? '' : String(payload[key]));
+    });
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: body,
+      redirect: 'follow',
+      credentials: 'omit'
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch(err) { throw new Error('INVALID_SERVER_RESPONSE'); }
+    return data;
+  }
+
+  function createRequestToken_(){
+    if(window.crypto && typeof window.crypto.randomUUID === 'function'){
+      return window.crypto.randomUUID();
+    }
+    const bytes = new Uint8Array(16);
+    if(window.crypto && typeof window.crypto.getRandomValues === 'function'){
+      window.crypto.getRandomValues(bytes);
+      return Array.from(bytes).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    }
+    return String(Date.now()) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2);
+  }
+
+  const requestTokenInput = document.getElementById('requestToken');
+  if(requestTokenInput && !requestTokenInput.value){
+    requestTokenInput.value = createRequestToken_();
+  }
 
   // منع الإرسال المزدوج (Double Submit): لو المستخدم ضغط "إرسال" أكتر من
   // مرة بسرعة (double click / تأخر استجابة الشبكة)، نمنع أي محاولة إرسال
@@ -496,16 +543,14 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
     const myToken = ++pinCheckToken;
     const code = codeInput.value.trim();
     try{
-      const url = SCRIPT_URL + '?action=checkPin&code=' + encodeURIComponent(code) + '&pin=' + encodeURIComponent(pin);
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await apiPost_('checkPin', { code: code, pin: pin });
       if(myToken !== pinCheckToken) return; // نتيجة قديمة (المستخدم غيّر الرقم أثناء الانتظار)، تجاهلها
       if(data.valid){
         pinStatus.textContent = 'الرقم السري صحيح ✓';
         pinStatus.className = 'code-status ok';
         pinValid = true;
       } else {
-        pinStatus.textContent = 'الرقم السري غير صحيح ✕';
+        pinStatus.textContent = data.message || (data.blocked ? 'تم إيقاف المحاولات مؤقتًا، حاول لاحقًا' : 'الرقم السري غير صحيح ✕');
         pinStatus.className = 'code-status err';
         pinValid = false;
       }
@@ -644,9 +689,9 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
     }
     balanceContent.innerHTML =
       '<div class="balance-grid">' +
-        '<div class="balance-box"><div class="num">' + balance.annual + '</div><div class="lbl">الرصيد السنوي</div></div>' +
-        '<div class="balance-box"><div class="num">' + balance.restAllowance + '</div><div class="lbl">بدل الراحات الأسبوعية</div></div>' +
-        '<div class="balance-box"><div class="num">' + balance.holidayWork + '</div><div class="lbl">بدل العمل في عطلة رسمية</div></div>' +
+        '<div class="balance-box"><div class="num">' + escapeHtmlText_(balance.annual) + '</div><div class="lbl">الرصيد السنوي</div></div>' +
+        '<div class="balance-box"><div class="num">' + escapeHtmlText_(balance.restAllowance) + '</div><div class="lbl">بدل الراحات الأسبوعية</div></div>' +
+        '<div class="balance-box"><div class="num">' + escapeHtmlText_(balance.holidayWork) + '</div><div class="lbl">بدل العمل في عطلة رسمية</div></div>' +
       '</div>';
   }
 
@@ -657,20 +702,20 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
     }
     requestsList.innerHTML = requests.map(function(r){
       return '<div class="req-item">' +
-        '<div class="req-top"><span class="req-type">' + (r.leaveType || 'إجازة') + '</span>' + statusBadge(r.status) + '</div>' +
+        '<div class="req-top"><span class="req-type">' + escapeHtmlText_(r.leaveType || 'إجازة') + '</span>' + statusBadge(r.status) + '</div>' +
         '<div class="req-details">' +
-          '<b>القسم:</b> ' + (r.deptLabel || '-') + '<br>' +
-          '<b>من:</b> ' + (r.startDate || '-') + ' &nbsp; <b>إلى:</b> ' + (r.endDate || '-') + ' &nbsp; <b>عدد الأيام:</b> ' + (r.days || '-') + '<br>' +
-          '<b>تاريخ التقديم:</b> ' + (r.submittedAt || '-') +
+          '<b>القسم:</b> ' + escapeHtmlText_(r.deptLabel || '-') + '<br>' +
+          '<b>من:</b> ' + escapeHtmlText_(r.startDate || '-') + ' &nbsp; <b>إلى:</b> ' + escapeHtmlText_(r.endDate || '-') + ' &nbsp; <b>عدد الأيام:</b> ' + escapeHtmlText_(r.days || '-') + '<br>' +
+          '<b>تاريخ التقديم:</b> ' + escapeHtmlText_(r.submittedAt || '-') +
         '</div>' +
       '</div>';
     }).join('');
   }
 
   function typeBadgeHtml_(type){
-    const t = type || '-';
+    const t = String(type || '-');
     const cls = t.indexOf('مرضي') > -1 ? 'sick' : (t.indexOf('نقدي') > -1 ? 'cash' : '');
-    return '<span class="type-badge ' + cls + '">' + t + '</span>';
+    return '<span class="type-badge ' + cls + '">' + escapeHtmlText_(t) + '</span>';
   }
 
   function renderSickCash(records){
@@ -679,7 +724,7 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
       return;
     }
     let rows = records.map(function(r){
-      return '<tr><td>' + typeBadgeHtml_(r.type) + '</td><td>' + (r.date || '-') + '</td><td>' + (r.details || '-') + '</td><td>' + (r.notes || '-') + '</td></tr>';
+      return '<tr><td>' + typeBadgeHtml_(r.type) + '</td><td>' + escapeHtmlText_(r.date || '-') + '</td><td>' + escapeHtmlText_(r.details || '-') + '</td><td>' + escapeHtmlText_(r.notes || '-') + '</td></tr>';
     }).join('');
     sickContent.innerHTML =
       '<table class="sick-table"><thead><tr><th>النوع</th><th>التاريخ</th><th>التفاصيل</th><th>ملاحظات</th></tr></thead><tbody>' + rows + '</tbody></table>';
@@ -694,12 +739,10 @@ const EMPLOYEES = {"power_utilities":{"25":{"name":"محمد عوض عبد ال�
     pinStatus.className = 'code-status';
 
     try{
-      const url = SCRIPT_URL + '?action=myStatus&code=' + encodeURIComponent(code) + '&pin=' + encodeURIComponent(pin);
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await apiPost_('myStatus', { code: code, pin: pin });
 
       if(!data.valid){
-        pinStatus.textContent = 'الكود الوظيفي أو الرقم السري غير صحيح ✕';
+        pinStatus.textContent = data.message || 'الكود الوظيفي أو الرقم السري غير صحيح ✕';
         pinStatus.className = 'code-status err';
         balanceCard.classList.add('hidden');
         requestsCard.classList.add('hidden');
